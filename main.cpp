@@ -5,14 +5,12 @@
 // Global Constants and Variables
 // -------------------------------------------------------------------------
 constexpr UINT IDT_FADE_TIMER = 1001; // IDT = "ID for Timer" (an app-chosen number to identify this timer)
-const TCHAR szClassName[] = _T("SeniorWin32LabClass"); // TCHAR/_T: text that can be ANSI or Unicode depending on project settings
-const TCHAR szWindowTitle[] = _T("Lab 1: Advanced Win32 API Demonstration");
+const TCHAR szClassName[] = _T("Win32LabClass"); // TCHAR/_T: text that can be ANSI or Unicode depending on project settings
+const TCHAR szWindowTitle[] = _T("Lab 1: Win32 API Demonstration");
 
 BYTE g_Alpha = 230;             // Alpha/transparency (0 = fully invisible, 255 = fully opaque)
 bool g_IsFading = false;        // Flag: are we currently running the fade-out animation?
 COLORREF g_CurrentBgColor = RGB(200, 200, 255); // COLORREF = Windows color value, RGB(r,g,b) builds it
-
-static constexpr COLORREF g_ColorKey = RGB(255, 0, 255); // Chroma key color: this becomes fully transparent
 
 // WndProc = "Window Procedure": Windows calls this function for each window message/event.
 // LRESULT  = "Long RESULT": the return type expected by Windows for message handling (success/error/info).
@@ -25,8 +23,13 @@ void DynamicallyChangeWindowProperties(HWND hwnd);
 // Entry Point (Task 1: Win32 GUI Project creation)
 // -------------------------------------------------------------------------
 // WinMain = the starting function for a classic Windows GUI app (no console window).
-// HINSTANCE = "handle to instance" (an ID for this running program).
-// nCmdShow tells how the window should be shown (normal/minimized/maximized).
+
+
+// Parameters (descriptive meaning):
+//   HINSTANCE hInstance     : "handle to instance" (an ID for this running program). (used when registering classes, loading resources, etc.)
+//   HINSTANCE hPrevInstance : legacy/unused in modern Win32 (always NULL); kept for compatibility with 16-bit Windows
+//   LPSTR     lpCmdLine     : command line string *excluding* the program name (ANSI here; ignored if you use GetCommandLineW in Unicode builds)
+//   int       nCmdShow      : nCmdShow tells how the window should be shown (normal/minimized/maximized). (use with ShowWindow: SW_SHOWNORMAL, SW_MINIMIZE, SW_MAXIMIZE, etc.)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 
     WNDCLASSEX wcex;                // Describes a "window class" (rules/appearance shared by windows of this type)
@@ -45,7 +48,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // LoadIcon/LoadCursor with NULL uses standard built-in resources (IDI_*/IDC_*).
     wcex.hIcon = LoadIcon(NULL, IDI_WARNING);                  // Big icon (e.g., shown in Alt+Tab)
     wcex.hCursor = LoadCursor(NULL, IDC_CROSS);               // Mouse cursor when over the client area
-    wcex.hbrBackground = NULL;  // Brush used to paint background (solid color fill)
+    wcex.hbrBackground = CreateSolidBrush(g_CurrentBgColor);  // Brush used to paint background (solid color fill)
 
     wcex.lpszMenuName = NULL;          // No menu resource
     wcex.lpszClassName = szClassName;  // Name of this window class (used later in CreateWindowEx)
@@ -75,19 +78,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // SetLayeredWindowAttributes applies transparency to a WS_EX_LAYERED window.
     // LWA_ALPHA means "use the alpha value" (not color-key transparency).
-    SetLayeredWindowAttributes(hwnd, g_ColorKey, g_Alpha, LWA_ALPHA | LWA_COLORKEY);
+    SetLayeredWindowAttributes(hwnd, 0, g_Alpha, LWA_ALPHA);
 
     // Task 6: Initial view state (show the window on screen)
     ShowWindow(hwnd, SW_SHOWNORMAL); // SW_* = "Show Window" command (normal state here)
-    UpdateWindow(hwnd);             // Forces an initial paint right away
+    UpdateWindow(hwnd);
 
-    // Message Loop: pulls events/messages from Windows and sends them to WndProc.
     MSG msg;
     while (GetMessage(&msg, NULL, 0, 0) > 0) { // GetMessage blocks until a message arrives; returns 0 when quitting
         TranslateMessage(&msg);                // Converts key presses into character messages (WM_CHAR)
         DispatchMessage(&msg);                 // Sends the message to WndProc
-        //WndProc stands for Window Procedure. It’s a callback function that Windows calls
-        //whenever something happens to the window.
     }
 
     return static_cast<int>(msg.wParam); // Exit code for the process
@@ -107,21 +107,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
 
-        case WM_ERASEBKGND: {
-            return 1; // We paint the background ourselves (prevents flicker with layered + colorkey)
-        } break;
-
         case WM_PAINT: { // WM_PAINT: Windows is asking us to draw the window's client area
             // Drawing opaque objects on a transparent (layered) window background
             PAINTSTRUCT ps;                 // Paint information filled by BeginPaint
             HDC hdc = BeginPaint(hwnd, &ps); // HDC = "handle to device context" (a drawing surface)
-
-            // Paint the entire client area with the color key => it becomes transparent.
-            RECT clientRect{};
-            GetClientRect(hwnd, &clientRect);
-            HBRUSH hKeyBrush = CreateSolidBrush(g_ColorKey);
-            FillRect(hdc, &clientRect, hKeyBrush);
-            DeleteObject(hKeyBrush);
 
             // Draw a solid red rectangle.
             HBRUSH hBrush = CreateSolidBrush(RGB(255, 100, 100)); // Brush = fill style used for shapes
@@ -162,7 +151,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (wParam == IDT_FADE_TIMER) {
                 if (g_Alpha > 10) {
                     g_Alpha -= 10; // Reduce opacity step-by-step to fade out
-                    SetLayeredWindowAttributes(hwnd, g_ColorKey, g_Alpha, LWA_ALPHA | LWA_COLORKEY);
+                    SetLayeredWindowAttributes(hwnd, 0, g_Alpha, LWA_ALPHA);
                 } else {
                     KillTimer(hwnd, IDT_FADE_TIMER); // Stop the repeating timer
                     DestroyWindow(hwnd);              // Now actually close the window
