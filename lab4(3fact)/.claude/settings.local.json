@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(g++ -o BudgetBloom.exe main.cpp -mwindows -municode -lcomctl32 -lgdi32 -lcomdlg32 -luser32 -lkernel32)",
+      "Bash(where cl.exe)",
+      "Bash(where g++.exe)",
+      "Bash(ls *.exe)",
+      "Bash(ls *.sln)",
+      "Bash(ls *.vcxproj)"
+    ]
+  }
+}
